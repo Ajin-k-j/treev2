@@ -1,1 +1,860 @@
-<h1>Hi</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gift of Joy - KCYM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@400;700&family=Poppins:wght@300;400;600&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Firebase Config -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqmQkICY9ddAI0-oGUmqciCxbyYhiNO-o",
+            authDomain: "christmastree-273bd.firebaseapp.com",
+            projectId: "christmastree-273bd",
+            storageBucket: "christmastree-273bd.firebasestorage.app",
+            messagingSenderId: "376008237242",
+            appId: "1:376008237242:web:5696c77ca97bf73fb0e283",
+            measurementId: "G-0LL64JRP2Z"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const COLLECTION_NAME = "christmas_gifts_v1";
+
+        window.db = db;
+        window.submitGiftToFirestore = async (data) => {
+            try {
+                data.timestamp = serverTimestamp();
+                data.status = "pending"; 
+                const docRef = await addDoc(collection(db, COLLECTION_NAME), data);
+                return { ...data, id: docRef.id }; 
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                return null;
+            }
+        };
+
+        window.initGiftListener = (onUpdate) => {
+            const q = query(collection(db, COLLECTION_NAME), orderBy("timestamp", "asc"));
+            return onSnapshot(q, (snapshot) => {
+                const gifts = [];
+                snapshot.forEach((doc) => {
+                    gifts.push({ id: doc.id, ...doc.data() });
+                });
+                onUpdate(gifts);
+            });
+        };
+
+        window.dispatchEvent(new Event('firebase-ready'));
+    </script>
+
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Poppins', sans-serif; background-color: #0f172a; }
+        .font-christmas { font-family: 'Mountains of Christmas', cursive; }
+        .font-hand { font-family: 'Dancing Script', cursive; }
+        
+        .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.18); }
+        .glass-dark { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        #loading-screen { position: absolute; top:0; left:0; width:100%; height:100%; background: #0f172a; z-index: 50; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: opacity 1s ease; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+        .pointer-auto { pointer-events: auto; }
+
+        #tooltip {
+            position: absolute; background: rgba(0, 0, 0, 0.4); color: #fff; padding: 6px 12px;
+            border-radius: 20px; font-weight: 600; font-size: 14px; pointer-events: none; display: none;
+            z-index: 100; white-space: nowrap; backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.9); transition: opacity 0.2s;
+        }
+
+        .postcard { background-color: #fdfbf7; background-image: radial-gradient(#e5e5f7 1px, transparent 1px); background-size: 20px 20px; color: #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .stamp { border: 2px dotted #ef4444; color: #ef4444; transform: rotate(-5deg); }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(209, 213, 219, 0.5); border-radius: 2px; }
+
+        .status-badge { font-size: 10px; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        .st-pending { background: #fef3c7; color: #d97706; border: 1px solid #d97706; }
+        .st-approved { background: #d1fae5; color: #059669; border: 1px solid #059669; }
+        .st-rejected { background: #fee2e2; color: #dc2626; border: 1px solid #dc2626; }
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div class="text-4xl md:text-5xl text-yellow-400 font-christmas mb-4 animate-pulse text-center px-4">Gift of Joy</div>
+        <div class="text-white opacity-50 text-sm">Planting the tree...</div>
+    </div>
+
+    <div id="tooltip"></div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <div class="flex justify-between items-start p-4 md:p-6 w-full">
+            <div class="pointer-auto">
+                <h1 class="text-3xl md:text-5xl text-white font-christmas drop-shadow-[0_0_10px_rgba(255,215,0,0.5)] leading-none">
+                    <span class="text-yellow-400">Gift</span> of Joy
+                </h1>
+            </div>
+            <div class="text-center pointer-auto glass-dark p-2 px-4 rounded-lg shadow-lg">
+                <div class="text-yellow-400 font-bold text-xs md:text-sm uppercase tracking-widest">KCYM Ponkandam</div>
+                <div class="text-white opacity-80 text-[10px] md:text-xs">Christmas Initiative</div>
+            </div>
+        </div>
+
+        <div class="absolute top-1/2 right-4 transform -translate-y-1/2 flex flex-col items-end gap-4 pointer-auto z-20">
+            <button onclick="openGiftModal()" class="group relative w-14 h-14 md:w-48 md:h-14 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg transition-all duration-300 flex items-center justify-center gap-2 border-2 border-red-800">
+                <span class="text-2xl">🎁</span>
+                <span class="hidden md:inline text-sm">Hang Gift</span>
+            </button>
+            
+            <button onclick="openLoginModal()" class="group relative w-14 h-14 md:w-48 md:h-14 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-lg transition-all duration-300 flex items-center justify-center gap-2 border-2 border-purple-800">
+                <span class="text-xl">📜</span>
+                <span class="hidden md:inline text-sm">My Gifts</span>
+            </button>
+        </div>
+
+        <div class="absolute bottom-4 left-4 pointer-auto max-w-[140px] md:max-w-none">
+            <div class="glass-dark p-3 rounded-lg text-white text-xs md:text-sm border border-yellow-500/30">
+                <div class="text-yellow-400 font-bold uppercase tracking-wider text-[10px] mb-1">Availability</div>
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🎄</span> 
+                    <div>
+                        <div id="slots-left" class="font-bold text-xl leading-none">---</div>
+                        <div class="text-[8px] opacity-70">SLOTS LEFT</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-4 right-4 pointer-auto text-right">
+            <div class="text-white text-[9px] md:text-[10px] opacity-80 uppercase tracking-widest mb-1">Christmas Magic In</div>
+            <div class="glass-dark p-2 md:p-3 rounded-lg flex gap-2 md:gap-3 text-white text-center">
+                <div><div id="t-days" class="text-lg md:text-2xl font-bold text-yellow-400 leading-none">00</div><div class="text-[7px] md:text-[8px] uppercase opacity-70">Days</div></div>
+                <div><div id="t-hours" class="text-lg md:text-2xl font-bold text-yellow-400 leading-none">00</div><div class="text-[7px] md:text-[8px] uppercase opacity-70">Hrs</div></div>
+                <div><div id="t-mins" class="text-lg md:text-2xl font-bold text-yellow-400 leading-none">00</div><div class="text-[7px] md:text-[8px] uppercase opacity-70">Mins</div></div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-1 left-1/2 transform -translate-x-1/2 pointer-auto text-center w-full">
+            <div class="text-gray-500 text-[8px] font-light tracking-widest uppercase opacity-50">Powered by ThinkerBytes</div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+
+    <!-- REWORKED ABOUT MODAL -->
+    <div id="about-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm transition-all duration-300 opacity-0 pointer-events-auto">
+        <!-- Close Overlay Area -->
+        <div class="absolute inset-0" onclick="closeAboutModal()"></div>
+        
+        <div class="relative bg-white rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl border-4 border-yellow-500 overflow-hidden transform transition-all">
+            <!-- Header -->
+            <div class="bg-red-50 p-4 border-b border-red-100 flex justify-between items-center shrink-0">
+                <div>
+                    <h2 class="text-2xl font-christmas text-red-600 font-bold leading-none">Gift of Joy</h2>
+                    <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">KCYM Ponkandam</p>
+                </div>
+                <button onclick="closeAboutModal()" class="w-8 h-8 flex items-center justify-center bg-white rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 transition shadow-sm border border-gray-200">
+                    <span class="text-xl font-bold">&times;</span>
+                </button>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="p-6 overflow-y-auto custom-scroll space-y-5">
+                <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                    <p class="text-sm text-green-800 text-center font-medium">🎄 Welcome! Plant a seed of joy this Christmas by hanging a virtual gift.</p>
+                </div>
+
+                <div class="space-y-3">
+                    <h3 class="font-bold text-gray-800 text-sm uppercase flex items-center gap-2">
+                        <span class="text-lg">🎁</span> How It Works
+                    </h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 text-center">
+                            <div class="font-bold text-red-600">Card</div>
+                            <div class="text-xs text-gray-500">₹10 Donation</div>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 text-center">
+                            <div class="font-bold text-green-600">Ornament</div>
+                            <div class="text-xs text-gray-500">₹50 Donation</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 text-xs text-gray-600 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <p class="font-bold text-gray-800 uppercase mb-2">Key Guidelines</p>
+                    <ul class="space-y-2 list-disc pl-4 marker:text-red-400">
+                        <li>Use your <strong>mobile number</strong> to track your gifts.</li>
+                        <li>Return anytime to view your collection in "My Gifts".</li>
+                        <li>Gifts are placed randomly on the tree.</li>
+                        <li>Older gifts might get slightly covered as the tree fills up.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 border-t border-gray-100 bg-gray-50 shrink-0 text-center">
+                <button onclick="closeAboutModal()" class="w-full bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-red-700 transition active:scale-95 text-sm uppercase tracking-wide">
+                    Start Gifting
+                </button>
+                <div class="mt-3 text-[10px] text-gray-400 flex justify-center gap-3">
+                    <span>Helpline:</span>
+                    <a href="tel:23243434" class="text-blue-500 hover:underline">Rony (2324...)</a>
+                    <span>&bull;</span>
+                    <a href="tel:343645643" class="text-blue-500 hover:underline">Thomas (3436...)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="read-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm transition-all duration-300 opacity-0 pointer-events-auto">
+        <div class="postcard relative p-6 md:p-8 rounded-sm max-w-md w-full transform scale-95 transition-transform duration-300">
+            <button onclick="closeReadModal()" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-2xl font-bold">&times;</button>
+            <div class="flex justify-between items-start border-b-2 border-red-100 pb-4 mb-4">
+                <div>
+                    <div class="text-red-600 text-xs uppercase tracking-widest font-bold mb-1">Season's Greetings</div>
+                    <div class="text-gray-400 text-[10px]">Dec 25, 2025</div>
+                </div>
+                <div class="stamp px-2 py-1 text-xs font-bold uppercase">KCYM<br>Verified</div>
+            </div>
+            <div class="mb-6">
+                <div class="text-xs text-gray-400 uppercase mb-1">From</div>
+                <h2 id="read-name" class="text-2xl font-hand text-gray-800 break-words">Name Here</h2>
+            </div>
+            <div class="relative pl-4 border-l-2 border-red-200">
+                <p id="read-message" class="text-lg font-hand text-gray-700 leading-relaxed break-words">"Message..."</p>
+            </div>
+            <div id="read-footer" class="mt-6 text-center text-[10px] text-gray-400">
+                Coupon ID: <span id="read-id" class="font-mono text-gray-600">...</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm pointer-events-auto">
+        <div class="bg-white rounded-xl max-w-sm w-full p-6 relative shadow-2xl overflow-y-auto max-h-[90vh]">
+            <button onclick="closeGiftModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 text-2xl">&times;</button>
+            <div class="text-center mb-4">
+                <h2 class="text-2xl font-christmas text-red-600 font-bold">Share a Blessing</h2>
+                <p class="text-gray-500 text-xs">Fill details to hang your gift</p>
+            </div>
+            <form id="gift-form" onsubmit="handleFormSubmit(event)">
+                <div class="space-y-3">
+                    <div class="flex gap-2 justify-center bg-gray-100 p-1 rounded-lg">
+                        <label class="flex-1 text-center cursor-pointer"><input type="radio" name="giftType" value="card" checked class="peer sr-only"><div class="py-2 rounded-md text-xs font-bold text-gray-500 peer-checked:bg-white peer-checked:text-red-600 peer-checked:shadow-sm transition-all">Card (₹10)</div></label>
+                        <label class="flex-1 text-center cursor-pointer"><input type="radio" name="giftType" value="ornament" class="peer sr-only"><div class="py-2 rounded-md text-xs font-bold text-gray-500 peer-checked:bg-white peer-checked:text-green-600 peer-checked:shadow-sm transition-all">Ornament (₹50)</div></label>
+                    </div>
+                    <input type="text" id="input-name" required maxlength="15" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Your Name">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="tel" id="input-phone" required pattern="[0-9]{10}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Mobile (10 digits)">
+                        <input type="date" id="input-dob" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-500">
+                    </div>
+                    <textarea id="input-message" required maxlength="80" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Write a blessing..."></textarea>
+                    <!-- Expanded Color Palette -->
+                    <div class="flex gap-2 justify-center py-2 flex-wrap">
+                        <label class="cursor-pointer"><input type="radio" name="color" value="#ffffff" checked class="peer sr-only"><div class="w-5 h-5 rounded-full bg-gray-100 ring-1 ring-gray-300 peer-checked:ring-2 peer-checked:ring-red-500 peer-checked:scale-110"></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="color" value="#fca5a5" class="peer sr-only"><div class="w-5 h-5 rounded-full bg-red-300 ring-1 ring-gray-300 peer-checked:ring-2 peer-checked:ring-red-500 peer-checked:scale-110"></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="color" value="#fde047" class="peer sr-only"><div class="w-5 h-5 rounded-full bg-yellow-300 ring-1 ring-gray-300 peer-checked:ring-2 peer-checked:ring-red-500 peer-checked:scale-110"></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="color" value="#93c5fd" class="peer sr-only"><div class="w-5 h-5 rounded-full bg-blue-300 ring-1 ring-gray-300 peer-checked:ring-2 peer-checked:ring-red-500 peer-checked:scale-110"></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="color" value="#c4b5fd" class="peer sr-only"><div class="w-5 h-5 rounded-full bg-violet-300 ring-1 ring-gray-300 peer-checked:ring-2 peer-checked:ring-red-500 peer-checked:scale-110"></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="color" value="#6ee7b7" class="peer sr-only"><div class="w-5 h-5 rounded-full bg-emerald-300 ring-1 ring-gray-300 peer-checked:ring-2 peer-checked:ring-red-500 peer-checked:scale-110"></div></label>
+                        <label class="cursor-pointer"><input type="radio" name="color" value="#fdba74" class="peer sr-only"><div class="w-5 h-5 rounded-full bg-orange-300 ring-1 ring-gray-300 peer-checked:ring-2 peer-checked:ring-red-500 peer-checked:scale-110"></div></label>
+                    </div>
+                </div>
+                <button type="submit" class="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg shadow-md text-sm">PROCEED</button>
+            </form>
+            <div class="mt-4 text-center">
+                <button onclick="openAboutModal(); closeGiftModal();" class="text-xs text-blue-600 hover:underline cursor-pointer">Read General Instructions</button>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <p class="text-[10px] text-gray-400 text-center mb-2 uppercase tracking-wide">Offline Support</p>
+                <div class="bg-gray-50 p-3 rounded-lg text-xs text-gray-600 text-center">
+                    <p class="mb-1">You can also hang gifts by calling volunteers:</p>
+                    <div class="font-bold text-gray-800 mt-1">Rony: <a href="tel:23243434" class="text-blue-600">23243434</a> &bull; Thomas: <a href="tel:343645643" class="text-blue-600">343645643</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="payment-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black bg-opacity-90 backdrop-blur-md pointer-events-auto">
+        <div class="bg-white rounded-xl max-w-sm w-full p-6 text-center relative">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">₹</div>
+            <h2 class="text-xl font-bold text-gray-800 mb-2">Verify Payment</h2>
+            <p class="text-sm text-gray-600 mb-4">Send <strong id="pay-amount">₹10</strong> via UPI.</p>
+            <div class="bg-gray-100 p-3 rounded-lg mb-4 border border-gray-200">
+                <div class="text-xs text-gray-500 uppercase">UPI ID</div>
+                <div class="text-lg font-mono font-bold select-all">kcym@upi</div>
+            </div>
+            <p class="text-xs text-gray-500 mb-6">Volunteers will verify this against your mobile number.</p>
+            <button onclick="confirmPayment()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm">I'VE SENT THE MONEY</button>
+            <button onclick="closePaymentModal()" class="mt-3 text-xs text-gray-400 underline">Cancel</button>
+        </div>
+    </div>
+
+    <div id="login-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm pointer-events-auto">
+        <div class="bg-white rounded-xl max-w-xs w-full p-6 relative">
+            <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 text-xl">&times;</button>
+            <h2 class="text-xl font-bold text-gray-800 mb-1">My Gifts</h2>
+            <p class="text-xs text-gray-500 mb-4">Enter details to find your gifts</p>
+            <input type="tel" id="login-phone" class="w-full mb-2 px-3 py-2 border rounded-lg text-sm" placeholder="Mobile Number">
+            <input type="date" id="login-dob" class="w-full mb-4 px-3 py-2 border rounded-lg text-sm text-gray-500">
+            <button onclick="handleLogin()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg text-sm">FIND</button>
+        </div>
+    </div>
+
+    <!-- MY GIFTS MODAL (WHITE THEME) -->
+    <div id="my-gifts-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm pointer-events-auto">
+        <div class="bg-white rounded-xl max-w-sm w-full p-6 relative max-h-[80vh] overflow-y-auto custom-scroll border border-gray-200">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-2">
+                <h3 class="text-gray-800 text-lg font-bold font-christmas">Your Collection</h3>
+                <button onclick="closeMyGiftsModal()" class="text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="my-gifts-list" class="space-y-2"></div>
+            <div class="mt-4 text-center">
+                <button onclick="logout()" class="text-xs text-red-500 hover:text-red-700 underline">Sign Out</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="canvas-container" class="fixed inset-0 w-full h-full z-0"></div>
+
+    <script>
+        // --- SLOT SYSTEM & CONSTANTS ---
+        const TREE_LEVELS = 5; 
+        const TREE_LEVEL_HEIGHT = 4; 
+        const TREE_MAX_RADIUS = 8; 
+        const LEVEL_OVERLAP = 1.0;
+        const CARD_WIDTH = 0.6;
+        const ORNAMENT_RADIUS = 0.3;
+        const MAX_SLOTS = 400; 
+        
+        let allGifts = [], currentUser = null, interactableGifts = [];
+        let scene, camera, renderer, controls, treeGroup, worldGroup, raycaster, mouse;
+        const tooltip = document.getElementById('tooltip');
+        let isAnimatingCamera = false, cameraAnimStartTime = 0;
+        let cameraAnimStartPos = new THREE.Vector3(), cameraAnimTargetPos = new THREE.Vector3();
+        let controlsAnimStartTarget = new THREE.Vector3(), controlsAnimEndTarget = new THREE.Vector3();
+        const CAMERA_ANIM_DURATION = 1500;
+
+        // Deterministic Random Generator for Placement
+        function pseudoRandom(seed) {
+            let value = 0;
+            for(let i=0; i<seed.length; i++) value += seed.charCodeAt(i);
+            const x = Math.sin(value) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function getRandomTreePosition(giftId, isMine) {
+            const seed = giftId || Math.random().toString();
+            const rand = pseudoRandom(seed);
+            const rand2 = pseudoRandom(seed + 'h');
+            const rand3 = pseudoRandom(seed + 'a');
+
+            // 1. Pick Level (0 to LEVELS-2 to avoid tip)
+            const level = Math.floor(rand * (TREE_LEVELS - 1)); 
+
+            // 2. Calculate Cone Geometry
+            const bottomR = TREE_MAX_RADIUS - (level * (TREE_MAX_RADIUS/TREE_LEVELS) * 0.85);
+            const topR = TREE_MAX_RADIUS - ((level+1) * (TREE_MAX_RADIUS/TREE_LEVELS) * 0.85);
+            const coneHeight = TREE_LEVEL_HEIGHT + LEVEL_OVERLAP;
+
+            // 3. Pick Height (Bottom 80% only)
+            const hRatio = rand2 * 0.8; 
+            const localHeight = hRatio * TREE_LEVEL_HEIGHT;
+            
+            // 4. Radius at Height
+            const rAtH = bottomR * (1 - localHeight/coneHeight);
+            
+            // 5. World Y
+            const y = (level * TREE_LEVEL_HEIGHT) + 2 + localHeight;
+
+            // 6. Angle
+            const angle = rand3 * Math.PI * 2;
+
+            // 7. Layering Offset (User Items on top)
+            const rOffset = isMine ? 0.1 : 0.0; 
+
+            const finalR = rAtH + rOffset;
+
+            const x = Math.cos(angle) * finalR;
+            const z = Math.sin(angle) * finalR;
+            
+            // Slope for rotation
+            const slopeAngle = Math.atan2(bottomR, coneHeight);
+
+            return { x, y, z, slope: slopeAngle, angle };
+        }
+
+        function init() {
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0x0f172a); scene.fog = new THREE.FogExp2(0x0f172a, 0.015);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000); camera.position.set(0, 8, 32);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.4;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; controls.dampingFactor = 0.05; controls.maxPolarAngle = Math.PI/2-0.05;
+            controls.minDistance = 2; controls.maxDistance = 60; controls.autoRotate = true; controls.autoRotateSpeed = 0.6;
+            controls.target.set(0, 8, 0);
+
+            const al = new THREE.AmbientLight(0xffffff, 0.2); scene.add(al);
+            const hl = new THREE.HemisphereLight(0xadd8e6, 0x000000, 0.3); scene.add(hl);
+            const ml = new THREE.DirectionalLight(0xffffff, 1); ml.position.set(10, 35, 20); ml.castShadow = true; scene.add(ml);
+
+            worldGroup = new THREE.Group(); scene.add(worldGroup); worldGroup.position.y = -2;
+            const tbl = new THREE.PointLight(0xffaa00, 1.5, 30); tbl.position.set(0, 3, 0); worldGroup.add(tbl);
+
+            createEnvironment(worldGroup); createTree(worldGroup); createGiftBoxes(worldGroup);
+            raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2();
+
+            window.addEventListener('resize', onWindowResize, false);
+            renderer.domElement.addEventListener('pointerdown', onPointerDown, false);
+            renderer.domElement.addEventListener('pointermove', onPointerMove, false);
+
+            const cached = localStorage.getItem('kcym_user');
+            if(cached) currentUser = JSON.parse(cached);
+
+            startCountdown();
+            if(window.initGiftListener) { startDataSync(); } else { window.addEventListener('firebase-ready', startDataSync); }
+
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.opacity = 0;
+                setTimeout(() => {
+                    document.getElementById('loading-screen').style.display = 'none';
+                    if(!localStorage.getItem('intro_seen')) {
+                        setTimeout(() => {
+                            window.openAboutModal();
+                            localStorage.setItem('intro_seen', 'true');
+                        }, 2000);
+                    }
+                }, 1000);
+            }, 1500);
+            animate();
+        }
+
+        function startDataSync() {
+            window.initGiftListener((gifts) => {
+                allGifts = gifts;
+                updateTree(gifts);
+                updateStats();
+                if(currentUser) updateMyGiftsList();
+            });
+        }
+
+        function clearTreeItems() {
+            interactableGifts.forEach(mesh => treeGroup.remove(mesh));
+            interactableGifts = [];
+        }
+
+        function updateTree(gifts) {
+            let toShow = gifts.filter(g => {
+                const isApproved = g.status === 'approved';
+                const isMine = currentUser && g.phone === currentUser.phone;
+                return isApproved || isMine;
+            });
+
+            if (currentUser) {
+                toShow.sort((a, b) => {
+                    const aIsMine = a.phone === currentUser.phone;
+                    const bIsMine = b.phone === currentUser.phone;
+                    return aIsMine === bIsMine ? 0 : aIsMine ? 1 : -1; 
+                });
+            }
+            
+            toShow.forEach(g => {
+                const existing = interactableGifts.find(m => m.userData.id === g.id);
+                if(!existing) {
+                    window.addItemToScene(g, g.type, false);
+                }
+            });
+        }
+
+        function createTree(parent) {
+            treeGroup = new THREE.Group(); parent.add(treeGroup);
+            const treeMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.8, flatShading: true, emissive: 0x064e3b, emissiveIntensity: 0.3 });
+            for(let i=0; i<TREE_LEVELS; i++) {
+                const r = TREE_MAX_RADIUS - (i * (TREE_MAX_RADIUS/TREE_LEVELS) * 0.85);
+                const cone = new THREE.Mesh(new THREE.ConeGeometry(r, TREE_LEVEL_HEIGHT + LEVEL_OVERLAP, 16), treeMat);
+                cone.position.y = (i * TREE_LEVEL_HEIGHT) + 2 + (TREE_LEVEL_HEIGHT + LEVEL_OVERLAP)/2;
+                cone.castShadow = true; cone.receiveShadow = true; treeGroup.add(cone);
+            }
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 2, 4, 8), new THREE.MeshStandardMaterial({ color: 0x3f2e22 }));
+            trunk.position.y = 2; trunk.castShadow = true; treeGroup.add(trunk);
+            const star = new THREE.Mesh(new THREE.OctahedronGeometry(1.5, 0), new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 2 }));
+            star.position.y = (TREE_LEVELS * TREE_LEVEL_HEIGHT) + 3; star.name = "star";
+            const sl = new THREE.PointLight(0xfacc15, 2, 30); sl.position.set(0,0,0); star.add(sl); treeGroup.add(star);
+
+            const colors = [0xff0000, 0xffff00, 0x0000ff, 0x00ff00, 0xffa500, 0xff00ff];
+            for(let i=0; i<60; i++) {
+                const c = colors[i%colors.length];
+                const hRatio = i/60; 
+                const y = hRatio * 20 + 2;
+                const r = 7 * (1-hRatio) + 0.5;
+                const angle = i * 0.5;
+                const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshBasicMaterial({ color: c }));
+                bulb.position.set(Math.cos(angle)*r, y, Math.sin(angle)*r);
+                const light = new THREE.PointLight(c, 0.5, 3);
+                light.position.copy(bulb.position);
+                treeGroup.add(bulb); treeGroup.add(light);
+            }
+        }
+
+        function createGiftBoxes(parent) {
+            const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff];
+            for(let i=0; i<15; i++) {
+                const g = new THREE.Group(); const s = 0.8 + Math.random()*0.5; 
+                const box = new THREE.Mesh(new THREE.BoxGeometry(s,s,s), new THREE.MeshStandardMaterial({ color: colors[i%colors.length], roughness: 0.4 }));
+                box.position.y = s/2; box.castShadow = true; g.add(box);
+                const r1 = new THREE.Mesh(new THREE.BoxGeometry(s*1.05, s, s*0.2), new THREE.MeshStandardMaterial({ color: 0xffffff })); r1.position.y = s/2; g.add(r1);
+                const r2 = new THREE.Mesh(new THREE.BoxGeometry(s*0.2, s, s*1.05), new THREE.MeshStandardMaterial({ color: 0xffffff })); r2.position.y = s/2; g.add(r2);
+                const bow = new THREE.Mesh(new THREE.TorusGeometry(s*0.2, s*0.05, 8, 20), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+                bow.position.set(0, s, 0); g.add(bow);
+                const bow2 = new THREE.Mesh(new THREE.TorusGeometry(s*0.2, s*0.05, 8, 20), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+                bow2.position.set(0, s, 0); bow2.rotation.y = Math.PI/2; g.add(bow2);
+                const a = Math.random()*Math.PI*2; const r = 6 + Math.random()*6;
+                g.position.set(Math.cos(a)*r, 0, Math.sin(a)*r); g.rotation.y = Math.random(); parent.add(g);
+            }
+        }
+        
+        function createEnvironment(parent) { 
+            const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 64), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 1 }));
+            ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; parent.add(ground);
+            const snowGeo = new THREE.BufferGeometry(); const pos = new Float32Array(1500 * 3);
+            for(let i=0; i<4500; i+=3) { pos[i]=(Math.random()-0.5)*100; pos[i+1]=Math.random()*60; pos[i+2]=(Math.random()-0.5)*100; }
+            snowGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            const snow = new THREE.Points(snowGeo, new THREE.PointsMaterial({ size: 0.2, color: 0xffffff, transparent: true, opacity: 0.6 }));
+            snow.name="snow"; scene.add(snow);
+        }
+
+        function createCardTexture(name, color) {
+            const c = document.createElement('canvas'); c.width=256; c.height=128; const ctx = c.getContext('2d');
+            ctx.fillStyle=color; ctx.beginPath(); ctx.roundRect(0,0,256,128,15); ctx.fill();
+            ctx.strokeStyle='#d1d5db'; ctx.lineWidth=8; ctx.stroke();
+            ctx.fillStyle='#1f2937'; ctx.font='bold 40px Poppins'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(name.length > 8 ? name.substring(0,8)+'..' : name, 128, 64);
+            return new THREE.CanvasTexture(c);
+        }
+
+        // UPDATED: Texture is rotated to appear horizontally on the mesh
+        function createOrnamentTexture(name, color) {
+            const c = document.createElement('canvas'); c.width=128; c.height=128; const ctx = c.getContext('2d');
+            
+            ctx.translate(64, 64);
+            ctx.rotate(-Math.PI/2); // Rotate 90 degrees CCW
+            ctx.translate(-64, -64);
+
+            ctx.fillStyle=color; ctx.beginPath(); ctx.arc(64,64,60,0,Math.PI*2); ctx.fill();
+            ctx.strokeStyle='#ffffff'; ctx.lineWidth=4; ctx.stroke();
+            ctx.fillStyle='#1f2937'; ctx.font='bold 24px Poppins'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            const dName = name.length > 6 ? name.substring(0,6) : name;
+            ctx.fillText(dName, 64, 64);
+            return new THREE.CanvasTexture(c);
+        }
+
+        window.addItemToScene = (data, type, animate = true) => {
+            let mesh;
+            const isMine = currentUser && data.phone === currentUser.phone;
+            const pos = getRandomTreePosition(data.id, isMine);
+
+            if(type === 'card') {
+                const tex = createCardTexture(data.name, data.color);
+                mesh = new THREE.Mesh(new THREE.PlaneGeometry(CARD_WIDTH, CARD_WIDTH/2), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, emissive: 0xffffff, emissiveIntensity: 0.2 }));
+                mesh.position.set(pos.x, pos.y, pos.z); 
+                mesh.lookAt(0, pos.y, 0);
+                mesh.rotateY(Math.PI); 
+                mesh.rotateX(-pos.slope); 
+            } else {
+                const tex = createOrnamentTexture(data.name, data.color);
+                const bodyGeo = new THREE.CylinderGeometry(ORNAMENT_RADIUS, ORNAMENT_RADIUS, 0.1, 32);
+                bodyGeo.rotateX(Math.PI / 2); 
+
+                const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.3, roughness: 0.4 });
+                const faceMat = new THREE.MeshBasicMaterial({ map: tex });
+                const materials = [bodyMat, faceMat, bodyMat]; 
+
+                mesh = new THREE.Mesh(bodyGeo, materials);
+                mesh.position.set(pos.x, pos.y, pos.z);
+                mesh.lookAt(0, pos.y, 0);
+                mesh.rotateY(Math.PI);
+                mesh.rotateX(-pos.slope);
+
+                // UPDATED: Gap logic - tighter for non-user items
+                const gap = isMine ? 0.05 : 0.01;
+                mesh.translateZ(gap); 
+
+                const hL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.3, 0)]), new THREE.LineBasicMaterial({color:0xcccccc}));
+                hL.position.y = ORNAMENT_RADIUS; 
+                mesh.add(hL);
+            }
+            
+            mesh.userData = { ...data, type };
+            mesh.castShadow = true;
+            treeGroup.add(mesh);
+            interactableGifts.push(mesh);
+            
+            if(animate) {
+                const worldPos = new THREE.Vector3(pos.x, pos.y - 2, pos.z);
+                focusOnObject(worldPos);
+            }
+        };
+
+        function updateStats() {
+            const slotsTaken = allGifts.filter(g => g.status === 'approved').length;
+            let totalSlots = 100;
+            while((totalSlots - slotsTaken) < 20) {
+                totalSlots += 20;
+            }
+            document.getElementById('slots-left').innerText = totalSlots - slotsTaken;
+        }
+
+        function startCountdown() {
+            const target = new Date("Dec 25, 2025 00:00:00").getTime();
+            setInterval(() => {
+                const now = new Date().getTime(); const diff = target - now;
+                if(diff > 0) {
+                    document.getElementById('t-days').innerText = Math.floor(diff / (1000*60*60*24));
+                    document.getElementById('t-hours').innerText = Math.floor((diff % (1000*60*60*24)) / (1000*60*60));
+                    document.getElementById('t-mins').innerText = Math.floor((diff % (1000*60*60)) / (1000*60));
+                }
+            }, 1000);
+        }
+
+        function focusOnObject(pos) {
+            isAnimatingCamera = true; cameraAnimStartTime = Date.now();
+            controls.autoRotate = false;
+            cameraAnimStartPos.copy(camera.position); controlsAnimStartTarget.copy(controls.target); controlsAnimEndTarget.copy(pos);
+            const dir = new THREE.Vector3(pos.x, 0, pos.z).normalize();
+            cameraAnimTargetPos.copy(pos).add(dir.multiplyScalar(6)); cameraAnimTargetPos.y += 1; 
+        }
+
+        let startX, startY;
+        function onPointerDown(e) { startX = e.clientX; startY = e.clientY; }
+        function onPointerMove(e) {
+            // UPDATED: Robust check for modal visibility
+            const about = document.getElementById('about-modal');
+            const modals = document.querySelectorAll('[id$="-modal"]');
+            let isModalOpen = false;
+            
+            // Explicitly check about modal class
+            if (about && !about.classList.contains('hidden') && about.style.display !== 'none') isModalOpen = true;
+            
+            modals.forEach(m => { 
+                if (!m.classList.contains('hidden') && !m.classList.contains('opacity-0')) isModalOpen = true; 
+            });
+            
+            if(isModalOpen) { tooltip.style.display = 'none'; return; }
+
+            mouse.x = (e.clientX/window.innerWidth)*2-1; mouse.y = -(e.clientY/window.innerHeight)*2+1;
+            raycaster.setFromCamera(mouse, camera);
+            const hits = raycaster.intersectObjects(interactableGifts, true);
+            const star = treeGroup.getObjectByName('star');
+            const starHits = star ? raycaster.intersectObject(star) : [];
+
+            if(hits.length > 0) {
+                // Find root object
+                let obj = hits[0].object;
+                while(obj.parent && !interactableGifts.includes(obj)) { obj = obj.parent; }
+
+                if(obj && obj.userData.name) {
+                    document.body.style.cursor = 'pointer'; controls.autoRotate = false;
+                    tooltip.innerText = obj.userData.name; tooltip.style.display = 'block';
+                    tooltip.style.left = (e.clientX + 15) + 'px'; tooltip.style.top = (e.clientY + 15) + 'px';
+                }
+            } else if (starHits.length > 0) {
+                document.body.style.cursor = 'pointer'; controls.autoRotate = false;
+                tooltip.innerText = "About Program"; tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 15) + 'px'; tooltip.style.top = (e.clientY + 15) + 'px';
+            } else {
+                document.body.style.cursor = 'default'; if(!isAnimatingCamera) controls.autoRotate = true;
+                tooltip.style.display = 'none';
+            }
+        }
+
+        window.addEventListener('pointerup', (e) => {
+            // UPDATED: prevent scene interaction when clicking on modals
+            if(e.target.closest('#ui-layer') || e.target.closest('#about-modal') || e.target.closest('.postcard') || e.target.closest('form') || e.target.closest('.glass-dark') || e.target.closest('.glass')) return;
+            
+            if(Math.sqrt(Math.pow(e.clientX-startX,2) + Math.pow(e.clientY-startY,2)) < 5) {
+                mouse.x = (e.clientX/window.innerWidth)*2-1; mouse.y = -(e.clientY/window.innerHeight)*2+1;
+                raycaster.setFromCamera(mouse, camera);
+                const hits = raycaster.intersectObjects(interactableGifts, true);
+                const star = treeGroup.getObjectByName('star');
+                const starHits = star ? raycaster.intersectObject(star) : [];
+
+                if(hits.length > 0) {
+                    let obj = hits[0].object;
+                    while(obj.parent && !interactableGifts.includes(obj)) { obj = obj.parent; }
+
+                    if(obj && obj.userData.name) {
+                        tooltip.style.display = 'none';
+                        const pos = obj.position.clone();
+                        const worldPos = new THREE.Vector3(pos.x, pos.y - 2, pos.z);
+                        focusOnObject(worldPos);
+                        showReadModal(obj.userData);
+                    }
+                } else if(starHits.length > 0) {
+                    window.openAboutModal();
+                }
+            }
+        });
+
+        const addModal = document.getElementById('add-modal');
+        const readModal = document.getElementById('read-modal');
+        const payModal = document.getElementById('payment-modal');
+        const loginModal = document.getElementById('login-modal');
+        const giftsModal = document.getElementById('my-gifts-modal');
+        const aboutModal = document.getElementById('about-modal');
+        let tempGiftData = null;
+
+        window.openGiftModal = () => { addModal.classList.remove('hidden'); controls.autoRotate = false; };
+        window.closeGiftModal = () => { addModal.classList.add('hidden'); if(!isAnimatingCamera) controls.autoRotate = true; };
+        window.closeReadModal = () => { readModal.classList.add('opacity-0'); setTimeout(() => readModal.classList.add('hidden'), 300); if(!isAnimatingCamera) controls.autoRotate = true; };
+        window.closeAboutModal = () => { aboutModal.classList.add('opacity-0'); setTimeout(() => aboutModal.classList.add('hidden'), 300); if(!isAnimatingCamera) controls.autoRotate = true; };
+        window.openAboutModal = () => { aboutModal.classList.remove('hidden'); aboutModal.classList.remove('opacity-0'); controls.autoRotate = false; };
+        
+        window.handleFormSubmit = (e) => {
+            e.preventDefault();
+            tempGiftData = {
+                type: document.querySelector('input[name="giftType"]:checked').value,
+                name: document.getElementById('input-name').value,
+                phone: document.getElementById('input-phone').value,
+                dob: document.getElementById('input-dob').value,
+                message: document.getElementById('input-message').value,
+                color: document.querySelector('input[name="color"]:checked').value
+            };
+            closeGiftModal();
+            document.getElementById('pay-amount').innerText = tempGiftData.type === 'card' ? '₹10' : '₹50';
+            payModal.classList.remove('hidden');
+        };
+
+        window.closePaymentModal = () => { payModal.classList.add('hidden'); if(!isAnimatingCamera) controls.autoRotate = true; };
+
+        window.confirmPayment = async () => {
+            const res = await window.submitGiftToFirestore(tempGiftData);
+            if(res) {
+                currentUser = { phone: tempGiftData.phone, dob: tempGiftData.dob };
+                localStorage.setItem('kcym_user', JSON.stringify(currentUser));
+                if(!allGifts.find(g => g.id === res.id)) allGifts.push(res);
+                
+                clearTreeItems();
+                updateTree(allGifts); 
+                
+                const mesh = interactableGifts.find(m => m.userData.id === res.id);
+                if(mesh) {
+                    const pos = mesh.position.clone();
+                    const worldPos = new THREE.Vector3(pos.x, pos.y - 2, pos.z);
+                    focusOnObject(worldPos);
+                }
+            }
+            closePaymentModal();
+        };
+
+        window.openLoginModal = () => { 
+            if(currentUser) { updateMyGiftsList(); giftsModal.classList.remove('hidden'); }
+            else { loginModal.classList.remove('hidden'); controls.autoRotate = false; }
+        };
+        window.closeLoginModal = () => { loginModal.classList.add('hidden'); if(!isAnimatingCamera) controls.autoRotate = true; };
+        window.closeMyGiftsModal = () => { giftsModal.classList.add('hidden'); if(!isAnimatingCamera) controls.autoRotate = true; };
+
+        window.handleLogin = () => {
+            const p = document.getElementById('login-phone').value;
+            const d = document.getElementById('login-dob').value;
+            if(p && d) {
+                currentUser = { phone: p, dob: d };
+                localStorage.setItem('kcym_user', JSON.stringify(currentUser));
+                closeLoginModal();
+                clearTreeItems();
+                updateTree(allGifts); 
+                updateMyGiftsList();
+                giftsModal.classList.remove('hidden');
+            }
+        };
+
+        window.logout = () => { 
+            currentUser = null; 
+            localStorage.removeItem('kcym_user');
+            giftsModal.classList.add('hidden'); 
+            clearTreeItems();
+            updateTree(allGifts);
+        };
+
+        function updateMyGiftsList() {
+            const list = document.getElementById('my-gifts-list');
+            list.innerHTML = '';
+            const myItems = allGifts.filter(g => g.phone === currentUser.phone);
+            if(myItems.length === 0) { list.innerHTML = '<div class="text-gray-400 text-[10px] text-center p-4">No gifts found.</div>'; return; }
+
+            myItems.forEach((gift) => {
+                let stClass = 'st-pending'; if(gift.status==='approved') stClass='st-approved'; if(gift.status==='rejected') stClass='st-rejected';
+                const item = document.createElement('div');
+                item.className = 'bg-gray-50 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition flex justify-between items-center border border-gray-200';
+                item.innerHTML = `
+                    <div>
+                        <div class="text-gray-800 text-sm font-bold">${gift.name}</div>
+                        <div class="text-gray-500 text-[10px] font-mono">Coupon ID: ${gift.id ? gift.id.slice(-6).toUpperCase() : '...'}</div>
+                        <div class="flex gap-2 mt-1">
+                            <span class="status-badge ${stClass}">${gift.status}</span>
+                            <span class="text-[10px] text-gray-500 uppercase border border-gray-300 px-2 rounded-full">Type: ${gift.type}</span>
+                        </div>
+                    </div>
+                    <div class="text-xl">🔭</div>
+                `;
+                item.onclick = () => {
+                    closeMyGiftsModal();
+                    const mesh = interactableGifts.find(m => m.userData.id === gift.id);
+                    if(mesh) {
+                        const pos = mesh.position.clone();
+                        const worldPos = new THREE.Vector3(pos.x, pos.y - 2, pos.z);
+                        focusOnObject(worldPos);
+                    } else { alert("This gift isn't on the tree (likely Pending/Rejected)."); }
+                };
+                list.appendChild(item);
+            });
+        }
+
+        function showReadModal(data) {
+            document.getElementById('read-name').innerText = data.name;
+            document.getElementById('read-message').innerText = `"${data.message}"`;
+            document.getElementById('read-id').innerText = data.id ? data.id.slice(-6).toUpperCase() : '...';
+            readModal.classList.remove('hidden'); readModal.classList.remove('opacity-0'); controls.autoRotate = false;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            TWEEN.update(); 
+            if(isAnimatingCamera) {
+                const elapsed = Date.now() - cameraAnimStartTime;
+                const progress = Math.min(elapsed / CAMERA_ANIM_DURATION, 1);
+                const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+                camera.position.lerpVectors(cameraAnimStartPos, cameraAnimTargetPos, ease);
+                controls.target.lerpVectors(controlsAnimStartTarget, controlsAnimEndTarget, ease);
+                if(progress >= 1) isAnimatingCamera = false;
+            } else { controls.update(); }
+            const snow = scene.getObjectByName('snow');
+            if(snow) {
+                const pos = snow.geometry.attributes.position.array;
+                for(let i=1; i<pos.length; i+=3) { pos[i]-=0.1; if(pos[i]<0) pos[i]=60; }
+                snow.geometry.attributes.position.needsUpdate = true;
+            }
+            const star = treeGroup.getObjectByName('star'); if(star) star.rotation.y -= 0.02;
+            renderer.render(scene, camera);
+        }
+
+        const script = document.createElement('script');
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js";
+        document.head.appendChild(script);
+        script.onload = init;
+        
+        function onWindowResize() { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+    </script>
+</body>
+</html>
