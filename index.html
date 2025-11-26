@@ -3,7 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gift of Joy - KCYM</title>
+    
+    <!-- SEO & Social Sharing -->
+    <title>Gift of Joy - Virtual Christmas Tree | KCYM Ponkandam</title>
+    <meta name="description" content="Celebrate the season of giving! Hang a personalized virtual gift on our Christmas tree, share your blessings with loved ones, and support KCYM Ponkandam's Christmas initiatives. Spread the magic of Christmas today.">
+    <meta name="keywords" content="KCYM Ponkandam, Christmas Tree, Virtual Gift, Christmas 2025, Charity, Online Christmas Celebration, Gift of Joy, Kerala Catholic Youth Movement">
+    <meta name="author" content="KCYM Ponkandam">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://christmastree-273bd.web.app/">
+    <meta property="og:title" content="Gift of Joy - Virtual Christmas Tree">
+    <meta property="og:description" content="I've hung a special gift on the virtual tree! Tap to open my message and celebrate the joy of Christmas with KCYM Ponkandam.">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1544967082-d9d3f626a4f5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://christmastree-273bd.web.app/">
+    <meta property="twitter:title" content="Gift of Joy - Virtual Christmas Tree">
+    <meta property="twitter:description" content="Celebrate the season! Hang a gift, share a blessing, and spread the light of Christmas with KCYM Ponkandam.">
+    <meta property="twitter:image" content="https://images.unsplash.com/photo-1544967082-d9d3f626a4f5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@400;700&family=Poppins:wght@300;400;600&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -12,8 +32,9 @@
     <!-- Firebase Config -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-        
+        import { getFirestore, collection, doc, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics.js";
+
         const firebaseConfig = {
             apiKey: "AIzaSyCqmQkICY9ddAI0-oGUmqciCxbyYhiNO-o",
             authDomain: "christmastree-273bd.firebaseapp.com",
@@ -25,10 +46,23 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app); 
         const db = getFirestore(app);
         const COLLECTION_NAME = "christmas_gifts_v1";
 
         window.db = db;
+        
+        // Global Booking State
+        window.isBookingClosed = false;
+
+        try {
+            onSnapshot(doc(db, "config", "christmas_settings"), (docSnap) => {
+                if (docSnap.exists()) {
+                    window.isBookingClosed = docSnap.data().closeBookings === true;
+                }
+            });
+        } catch(e) { console.log("Config listener optional"); }
+
         window.submitGiftToFirestore = async (data) => {
             try {
                 data.timestamp = serverTimestamp();
@@ -79,6 +113,16 @@
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(209, 213, 219, 0.5); border-radius: 2px; }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
 
         .status-badge { font-size: 10px; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
         .st-pending { background: #fef3c7; color: #d97706; border: 1px solid #d97706; }
@@ -180,11 +224,11 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 text-center">
                             <div class="font-bold text-red-600">Card</div>
-                            <div class="text-xs text-gray-500">₹10 Donation</div>
+                            <div class="text-xs text-gray-500 font-bold">₹10</div>
                         </div>
                         <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 text-center">
                             <div class="font-bold text-green-600">Ornament</div>
-                            <div class="text-xs text-gray-500">₹50 Donation</div>
+                            <div class="text-xs text-gray-500 font-bold">₹50</div>
                         </div>
                     </div>
                 </div>
@@ -197,6 +241,9 @@
                         <li>Gifts are placed randomly on the tree.</li>
                         <li>Older gifts might get slightly covered as the tree fills up.</li>
                     </ul>
+                    <p class="mt-3 pt-2 border-t border-gray-200">
+                        For more details, rules and regulations <a href="#" class="text-blue-600 font-bold hover:underline">click here</a>.
+                    </p>
                 </div>
             </div>
 
@@ -205,17 +252,36 @@
                 <button onclick="closeAboutModal()" class="w-full bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-red-700 transition active:scale-95 text-sm uppercase tracking-wide">
                     Start Gifting
                 </button>
-                <div class="mt-3 text-[10px] text-gray-400 flex justify-center gap-3">
-                    <span>Helpline:</span>
-                    <a href="tel:23243434" class="text-blue-500 hover:underline">Rony (2324...)</a>
-                    <span>&bull;</span>
-                    <a href="tel:343645643" class="text-blue-500 hover:underline">Thomas (3436...)</a>
+                <div class="mt-3 text-[10px] text-gray-400 flex flex-wrap justify-center items-center gap-2">
+                    <span class="font-bold text-gray-500">Helpline:</span>
+                    <span class="flex flex-wrap justify-center gap-2">
+                        <a href="tel:23243434" class="text-blue-500 hover:underline whitespace-nowrap">Rony (23243434)</a>
+                        <span class="text-gray-300 hidden sm:inline">|</span>
+                        <a href="tel:343645643" class="text-blue-500 hover:underline whitespace-nowrap">Thomas (343645643)</a>
+                    </span>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- STATUS/BOOKING CLOSED MODAL -->
+    <div id="status-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm transition-all pointer-events-auto">
+        <div class="absolute inset-0" onclick="closeStatusModal()"></div>
+        <div class="bg-white rounded-xl max-w-xs w-full p-6 text-center relative border-4 border-red-500 shadow-2xl">
+            <button onclick="closeStatusModal()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            <div class="text-4xl mb-2 animate-bounce">🚧</div>
+            <h3 class="text-xl font-christmas text-red-600 font-bold mb-2">Traffic Overload!</h3>
+            <p class="text-sm text-gray-600 leading-relaxed">
+                Sorry, we are getting massive requests! 🎁<br>
+                We are adding more slots to the tree.<br>
+                <span class="font-bold text-red-500 mt-2 block">Please check back later!</span>
+            </p>
+            <button onclick="closeStatusModal()" class="mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wide">Okay</button>
+        </div>
+    </div>
+
     <div id="read-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm transition-all duration-300 opacity-0 pointer-events-auto">
+        <div class="absolute inset-0" onclick="closeReadModal()"></div>
         <div class="postcard relative p-6 md:p-8 rounded-sm max-w-md w-full transform scale-95 transition-transform duration-300">
             <button onclick="closeReadModal()" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-2xl font-bold">&times;</button>
             <div class="flex justify-between items-start border-b-2 border-red-100 pb-4 mb-4">
@@ -223,22 +289,44 @@
                     <div class="text-red-600 text-xs uppercase tracking-widest font-bold mb-1">Season's Greetings</div>
                     <div class="text-gray-400 text-[10px]">Dec 25, 2025</div>
                 </div>
-                <div class="stamp px-2 py-1 text-xs font-bold uppercase">KCYM<br>Verified</div>
+                <div id="verification-stamp" class="stamp px-2 py-1 text-xs font-bold uppercase">KCYM<br>Verified</div>
             </div>
             <div class="mb-6">
                 <div class="text-xs text-gray-400 uppercase mb-1">From</div>
                 <h2 id="read-name" class="text-2xl font-hand text-gray-800 break-words">Name Here</h2>
             </div>
-            <div class="relative pl-4 border-l-2 border-red-200">
+            <!-- UPDATED: Scrollable message with hidden scrollbar -->
+            <div class="relative pl-4 border-l-2 border-red-200 max-h-36 overflow-y-auto no-scrollbar">
                 <p id="read-message" class="text-lg font-hand text-gray-700 leading-relaxed break-words">"Message..."</p>
             </div>
-            <div id="read-footer" class="mt-6 text-center text-[10px] text-gray-400">
-                Coupon ID: <span id="read-id" class="font-mono text-gray-600">...</span>
+            
+            <div id="read-footer" class="mt-6">
+                <div class="flex justify-between items-end mb-4">
+                    <div class="text-[10px] text-gray-400">
+                        Coupon ID: <span id="read-id" class="font-mono text-gray-600">...</span>
+                    </div>
+                    <button id="share-btn" onclick="shareGift()" class="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 font-hand font-bold tracking-wide group" style="display: none;">
+                        <span class="group-hover:underline decoration-red-300 underline-offset-2">Share</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="pending-note" class="text-[10px] text-orange-500 text-center mt-2 mb-2 hidden border-t border-orange-100 pt-2">
+                    Payment/approval pending. Complete it for a verified badge and ability to share. <br>
+                    <a href="#" class="underline font-bold text-orange-600">Terms & Conditions</a>
+                </div>
+
+                <div class="text-center border-t-2 border-dotted border-red-100 pt-3">
+                    <p class="text-[9px] text-yellow-600 font-bold uppercase tracking-[0.2em] opacity-90">KCYM Ponkandam Initiative</p>
+                </div>
             </div>
         </div>
     </div>
 
     <div id="add-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm pointer-events-auto">
+        <div class="absolute inset-0" onclick="closeGiftModal()"></div>
         <div class="bg-white rounded-xl max-w-sm w-full p-6 relative shadow-2xl overflow-y-auto max-h-[90vh]">
             <button onclick="closeGiftModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 text-2xl">&times;</button>
             <div class="text-center mb-4">
@@ -254,7 +342,10 @@
                     <input type="text" id="input-name" required maxlength="15" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Your Name">
                     <div class="grid grid-cols-2 gap-2">
                         <input type="tel" id="input-phone" required pattern="[0-9]{10}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Mobile (10 digits)">
-                        <input type="date" id="input-dob" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-500">
+                        <div>
+                            <label for="input-dob" class="block text-[10px] text-gray-500 font-bold uppercase mb-1 ml-1">Date of Birth</label>
+                            <input type="date" id="input-dob" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-500">
+                        </div>
                     </div>
                     <textarea id="input-message" required maxlength="80" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="Write a blessing..."></textarea>
                     <!-- Expanded Color Palette -->
@@ -284,6 +375,7 @@
     </div>
 
     <div id="payment-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black bg-opacity-90 backdrop-blur-md pointer-events-auto">
+        <div class="absolute inset-0" onclick="closePaymentModal()"></div>
         <div class="bg-white rounded-xl max-w-sm w-full p-6 text-center relative">
             <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">₹</div>
             <h2 class="text-xl font-bold text-gray-800 mb-2">Verify Payment</h2>
@@ -293,24 +385,30 @@
                 <div class="text-lg font-mono font-bold select-all">kcym@upi</div>
             </div>
             <p class="text-xs text-gray-500 mb-6">Volunteers will verify this against your mobile number.</p>
-            <button onclick="confirmPayment()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm">I'VE SENT THE MONEY</button>
+            <button id="confirm-pay-btn" onclick="confirmPayment()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm transition-colors">I'VE SENT THE MONEY</button>
             <button onclick="closePaymentModal()" class="mt-3 text-xs text-gray-400 underline">Cancel</button>
         </div>
     </div>
 
     <div id="login-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm pointer-events-auto">
+        <div class="absolute inset-0" onclick="closeLoginModal()"></div>
         <div class="bg-white rounded-xl max-w-xs w-full p-6 relative">
             <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 text-xl">&times;</button>
             <h2 class="text-xl font-bold text-gray-800 mb-1">My Gifts</h2>
             <p class="text-xs text-gray-500 mb-4">Enter details to find your gifts</p>
+            <div id="login-error" class="hidden text-xs text-red-600 bg-red-50 p-2 rounded mb-3 border border-red-100"></div>
             <input type="tel" id="login-phone" class="w-full mb-2 px-3 py-2 border rounded-lg text-sm" placeholder="Mobile Number">
-            <input type="date" id="login-dob" class="w-full mb-4 px-3 py-2 border rounded-lg text-sm text-gray-500">
+            <div>
+                <label for="login-dob" class="block text-[10px] text-gray-500 font-bold uppercase mb-1 ml-1">Date of Birth</label>
+                <input type="date" id="login-dob" class="w-full mb-4 px-3 py-2 border rounded-lg text-sm text-gray-500">
+            </div>
             <button onclick="handleLogin()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg text-sm">FIND</button>
         </div>
     </div>
 
     <!-- MY GIFTS MODAL (WHITE THEME) -->
     <div id="my-gifts-modal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black bg-opacity-80 backdrop-blur-sm pointer-events-auto">
+        <div class="absolute inset-0" onclick="closeMyGiftsModal()"></div>
         <div class="bg-white rounded-xl max-w-sm w-full p-6 relative max-h-[80vh] overflow-y-auto custom-scroll border border-gray-200">
             <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-2">
                 <h3 class="text-gray-800 text-lg font-bold font-christmas">Your Collection</h3>
@@ -342,6 +440,9 @@
         let cameraAnimStartPos = new THREE.Vector3(), cameraAnimTargetPos = new THREE.Vector3();
         let controlsAnimStartTarget = new THREE.Vector3(), controlsAnimEndTarget = new THREE.Vector3();
         const CAMERA_ANIM_DURATION = 1500;
+        
+        let pendingShareId = null;
+        let hasSharedLoad = false;
 
         // Deterministic Random Generator for Placement
         function pseudoRandom(seed) {
@@ -396,8 +497,7 @@
             scene = new THREE.Scene(); scene.background = new THREE.Color(0x0f172a); scene.fog = new THREE.FogExp2(0x0f172a, 0.015);
             camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000); camera.position.set(0, 8, 32);
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.4;
             document.getElementById('canvas-container').appendChild(renderer.domElement);
             
@@ -408,7 +508,7 @@
 
             const al = new THREE.AmbientLight(0xffffff, 0.2); scene.add(al);
             const hl = new THREE.HemisphereLight(0xadd8e6, 0x000000, 0.3); scene.add(hl);
-            const ml = new THREE.DirectionalLight(0xffffff, 1); ml.position.set(10, 35, 20); ml.castShadow = true; scene.add(ml);
+            const ml = new THREE.DirectionalLight(0xffffff, 1); ml.position.set(10, 35, 20); scene.add(ml);
 
             worldGroup = new THREE.Group(); scene.add(worldGroup); worldGroup.position.y = -2;
             const tbl = new THREE.PointLight(0xffaa00, 1.5, 30); tbl.position.set(0, 3, 0); worldGroup.add(tbl);
@@ -423,6 +523,10 @@
             const cached = localStorage.getItem('kcym_user');
             if(cached) currentUser = JSON.parse(cached);
 
+            // CHECK URL FOR SHARED GIFT
+            const urlParams = new URLSearchParams(window.location.search);
+            pendingShareId = urlParams.get('gift');
+
             startCountdown();
             if(window.initGiftListener) { startDataSync(); } else { window.addEventListener('firebase-ready', startDataSync); }
 
@@ -430,11 +534,12 @@
                 document.getElementById('loading-screen').style.opacity = 0;
                 setTimeout(() => {
                     document.getElementById('loading-screen').style.display = 'none';
-                    if(!localStorage.getItem('intro_seen')) {
+                    // Show intro logic: If pendingShareId present, do NOT show intro. 
+                    // Otherwise, show intro after 5s always (per user request).
+                    if(!pendingShareId) {
                         setTimeout(() => {
                             window.openAboutModal();
-                            localStorage.setItem('intro_seen', 'true');
-                        }, 2000);
+                        }, 5000);
                     }
                 }, 1000);
             }, 1500);
@@ -447,6 +552,26 @@
                 updateTree(gifts);
                 updateStats();
                 if(currentUser) updateMyGiftsList();
+
+                // Handle Shared Link Zoom
+                if(pendingShareId && !hasSharedLoad) {
+                    const sharedGift = allGifts.find(g => g.id === pendingShareId);
+                    if(sharedGift) {
+                        hasSharedLoad = true;
+                        // Need a slight delay to ensure mesh is added to scene
+                        setTimeout(() => {
+                            const mesh = interactableGifts.find(m => m.userData.id === pendingShareId);
+                            if(mesh) {
+                                const pos = mesh.position.clone();
+                                const worldPos = new THREE.Vector3(pos.x, pos.y - 2, pos.z);
+                                focusOnObject(worldPos);
+                                showReadModal(sharedGift);
+                                // Optional: Clean URL
+                                // window.history.replaceState({}, document.title, window.location.pathname);
+                            }
+                        }, 500);
+                    }
+                }
             });
         }
 
@@ -459,7 +584,8 @@
             let toShow = gifts.filter(g => {
                 const isApproved = g.status === 'approved';
                 const isMine = currentUser && g.phone === currentUser.phone;
-                return isApproved || isMine;
+                const isShared = pendingShareId && g.id === pendingShareId; // Always show shared gift
+                return isApproved || isMine || isShared;
             });
 
             if (currentUser) {
@@ -472,7 +598,10 @@
             
             toShow.forEach(g => {
                 const existing = interactableGifts.find(m => m.userData.id === g.id);
-                if(!existing) {
+                if(existing) {
+                    // FIX: Update userData for existing meshes so status changes reflect immediately
+                    existing.userData = { ...g, type: g.type };
+                } else {
                     window.addItemToScene(g, g.type, false);
                 }
             });
@@ -480,15 +609,17 @@
 
         function createTree(parent) {
             treeGroup = new THREE.Group(); parent.add(treeGroup);
+            // REVERTED: Back to MeshStandardMaterial for better device compatibility
             const treeMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.8, flatShading: true, emissive: 0x064e3b, emissiveIntensity: 0.3 });
             for(let i=0; i<TREE_LEVELS; i++) {
                 const r = TREE_MAX_RADIUS - (i * (TREE_MAX_RADIUS/TREE_LEVELS) * 0.85);
                 const cone = new THREE.Mesh(new THREE.ConeGeometry(r, TREE_LEVEL_HEIGHT + LEVEL_OVERLAP, 16), treeMat);
                 cone.position.y = (i * TREE_LEVEL_HEIGHT) + 2 + (TREE_LEVEL_HEIGHT + LEVEL_OVERLAP)/2;
-                cone.castShadow = true; cone.receiveShadow = true; treeGroup.add(cone);
+                // Shadows disabled for performance
+                treeGroup.add(cone);
             }
             const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 2, 4, 8), new THREE.MeshStandardMaterial({ color: 0x3f2e22 }));
-            trunk.position.y = 2; trunk.castShadow = true; treeGroup.add(trunk);
+            trunk.position.y = 2; treeGroup.add(trunk);
             const star = new THREE.Mesh(new THREE.OctahedronGeometry(1.5, 0), new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 2 }));
             star.position.y = (TREE_LEVELS * TREE_LEVEL_HEIGHT) + 3; star.name = "star";
             const sl = new THREE.PointLight(0xfacc15, 2, 30); sl.position.set(0,0,0); star.add(sl); treeGroup.add(star);
@@ -513,7 +644,7 @@
             for(let i=0; i<15; i++) {
                 const g = new THREE.Group(); const s = 0.8 + Math.random()*0.5; 
                 const box = new THREE.Mesh(new THREE.BoxGeometry(s,s,s), new THREE.MeshStandardMaterial({ color: colors[i%colors.length], roughness: 0.4 }));
-                box.position.y = s/2; box.castShadow = true; g.add(box);
+                box.position.y = s/2; g.add(box);
                 const r1 = new THREE.Mesh(new THREE.BoxGeometry(s*1.05, s, s*0.2), new THREE.MeshStandardMaterial({ color: 0xffffff })); r1.position.y = s/2; g.add(r1);
                 const r2 = new THREE.Mesh(new THREE.BoxGeometry(s*0.2, s, s*1.05), new THREE.MeshStandardMaterial({ color: 0xffffff })); r2.position.y = s/2; g.add(r2);
                 const bow = new THREE.Mesh(new THREE.TorusGeometry(s*0.2, s*0.05, 8, 20), new THREE.MeshStandardMaterial({ color: 0xffffff }));
@@ -527,7 +658,7 @@
         
         function createEnvironment(parent) { 
             const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 64), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 1 }));
-            ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; parent.add(ground);
+            ground.rotation.x = -Math.PI / 2; parent.add(ground);
             const snowGeo = new THREE.BufferGeometry(); const pos = new Float32Array(1500 * 3);
             for(let i=0; i<4500; i+=3) { pos[i]=(Math.random()-0.5)*100; pos[i+1]=Math.random()*60; pos[i+2]=(Math.random()-0.5)*100; }
             snowGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -563,7 +694,11 @@
         window.addItemToScene = (data, type, animate = true) => {
             let mesh;
             const isMine = currentUser && data.phone === currentUser.phone;
-            const pos = getRandomTreePosition(data.id, isMine);
+            // Check for shared item
+            const isShared = pendingShareId && data.id === pendingShareId; 
+            const isHighlighted = isMine || isShared; 
+
+            const pos = getRandomTreePosition(data.id, isHighlighted); // Pass visual prominence flag
 
             if(type === 'card') {
                 const tex = createCardTexture(data.name, data.color);
@@ -574,9 +709,11 @@
                 mesh.rotateX(-pos.slope); 
             } else {
                 const tex = createOrnamentTexture(data.name, data.color);
-                const bodyGeo = new THREE.CylinderGeometry(ORNAMENT_RADIUS, ORNAMENT_RADIUS, 0.1, 32);
+                // UPDATED: Thickness reduced to 0.05
+                const bodyGeo = new THREE.CylinderGeometry(ORNAMENT_RADIUS, ORNAMENT_RADIUS, 0.05, 32);
                 bodyGeo.rotateX(Math.PI / 2); 
 
+                // Reverted to Standard for better compatibility
                 const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.3, roughness: 0.4 });
                 const faceMat = new THREE.MeshBasicMaterial({ map: tex });
                 const materials = [bodyMat, faceMat, bodyMat]; 
@@ -588,7 +725,8 @@
                 mesh.rotateX(-pos.slope);
 
                 // UPDATED: Gap logic - tighter for non-user items
-                const gap = isMine ? 0.05 : 0.01;
+                // Use isHighlighted (Mine OR Shared) to pop out
+                const gap = isHighlighted ? 0.05 : 0.01;
                 mesh.translateZ(gap); 
 
                 const hL = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0.3, 0)]), new THREE.LineBasicMaterial({color:0xcccccc}));
@@ -597,7 +735,6 @@
             }
             
             mesh.userData = { ...data, type };
-            mesh.castShadow = true;
             treeGroup.add(mesh);
             interactableGifts.push(mesh);
             
@@ -681,7 +818,7 @@
 
         window.addEventListener('pointerup', (e) => {
             // UPDATED: prevent scene interaction when clicking on modals
-            if(e.target.closest('#ui-layer') || e.target.closest('#about-modal') || e.target.closest('.postcard') || e.target.closest('form') || e.target.closest('.glass-dark') || e.target.closest('.glass')) return;
+            if(e.target.closest('#ui-layer') || e.target.closest('#about-modal') || e.target.closest('#status-modal') || e.target.closest('.postcard') || e.target.closest('form') || e.target.closest('.glass-dark') || e.target.closest('.glass')) return;
             
             if(Math.sqrt(Math.pow(e.clientX-startX,2) + Math.pow(e.clientY-startY,2)) < 5) {
                 mouse.x = (e.clientX/window.innerWidth)*2-1; mouse.y = -(e.clientY/window.innerHeight)*2+1;
@@ -713,12 +850,31 @@
         const loginModal = document.getElementById('login-modal');
         const giftsModal = document.getElementById('my-gifts-modal');
         const aboutModal = document.getElementById('about-modal');
+        const statusModal = document.getElementById('status-modal');
         let tempGiftData = null;
+        let currentGiftId = null; // Store ID for sharing
 
-        window.openGiftModal = () => { addModal.classList.remove('hidden'); controls.autoRotate = false; };
+        window.openGiftModal = () => { 
+            if(window.isBookingClosed) {
+                statusModal.classList.remove('hidden');
+                controls.autoRotate = false;
+                return;
+            }
+            addModal.classList.remove('hidden'); 
+            controls.autoRotate = false; 
+            
+            // Auto-fill logic if user is logged in
+            if(currentUser) {
+                const phoneInput = document.getElementById('input-phone');
+                const dobInput = document.getElementById('input-dob');
+                if(phoneInput) phoneInput.value = currentUser.phone;
+                if(dobInput) dobInput.value = currentUser.dob;
+            }
+        };
         window.closeGiftModal = () => { addModal.classList.add('hidden'); if(!isAnimatingCamera) controls.autoRotate = true; };
         window.closeReadModal = () => { readModal.classList.add('opacity-0'); setTimeout(() => readModal.classList.add('hidden'), 300); if(!isAnimatingCamera) controls.autoRotate = true; };
         window.closeAboutModal = () => { aboutModal.classList.add('opacity-0'); setTimeout(() => aboutModal.classList.add('hidden'), 300); if(!isAnimatingCamera) controls.autoRotate = true; };
+        window.closeStatusModal = () => { statusModal.classList.add('hidden'); if(!isAnimatingCamera) controls.autoRotate = true; };
         window.openAboutModal = () => { aboutModal.classList.remove('hidden'); aboutModal.classList.remove('opacity-0'); controls.autoRotate = false; };
         
         window.handleFormSubmit = (e) => {
@@ -738,8 +894,20 @@
 
         window.closePaymentModal = () => { payModal.classList.add('hidden'); if(!isAnimatingCamera) controls.autoRotate = true; };
 
+        let isProcessingPayment = false; // Prevent multiple clicks
+
         window.confirmPayment = async () => {
+            if(isProcessingPayment) return;
+            isProcessingPayment = true;
+
+            const btn = document.getElementById('confirm-pay-btn');
+            const originalText = btn.innerText;
+            btn.innerText = "Verifying...";
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+
             const res = await window.submitGiftToFirestore(tempGiftData);
+            
             if(res) {
                 currentUser = { phone: tempGiftData.phone, dob: tempGiftData.dob };
                 localStorage.setItem('kcym_user', JSON.stringify(currentUser));
@@ -754,13 +922,33 @@
                     const worldPos = new THREE.Vector3(pos.x, pos.y - 2, pos.z);
                     focusOnObject(worldPos);
                 }
+
+                // Clear only Name and Message fields, keep Phone/DOB
+                document.getElementById('input-name').value = '';
+                document.getElementById('input-message').value = '';
             }
+
+            // Reset Button State
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            isProcessingPayment = false;
+
             closePaymentModal();
         };
 
         window.openLoginModal = () => { 
             if(currentUser) { updateMyGiftsList(); giftsModal.classList.remove('hidden'); }
-            else { loginModal.classList.remove('hidden'); controls.autoRotate = false; }
+            else { 
+                // Reset form state
+                const errorDiv = document.getElementById('login-error');
+                if(errorDiv) errorDiv.classList.add('hidden');
+                document.getElementById('login-phone').value = '';
+                document.getElementById('login-dob').value = '';
+                
+                loginModal.classList.remove('hidden'); 
+                controls.autoRotate = false; 
+            }
         };
         window.closeLoginModal = () => { loginModal.classList.add('hidden'); if(!isAnimatingCamera) controls.autoRotate = true; };
         window.closeMyGiftsModal = () => { giftsModal.classList.add('hidden'); if(!isAnimatingCamera) controls.autoRotate = true; };
@@ -768,7 +956,16 @@
         window.handleLogin = () => {
             const p = document.getElementById('login-phone').value;
             const d = document.getElementById('login-dob').value;
-            if(p && d) {
+            const errorDiv = document.getElementById('login-error');
+            
+            // Hide error initially
+            errorDiv.classList.add('hidden');
+
+            // UPDATED: Verified login against actual gift data
+            // Check if any gift exists matching BOTH phone and DOB
+            const validUser = allGifts.find(g => g.phone === p && g.dob === d);
+
+            if(validUser) {
                 currentUser = { phone: p, dob: d };
                 localStorage.setItem('kcym_user', JSON.stringify(currentUser));
                 closeLoginModal();
@@ -776,6 +973,10 @@
                 updateTree(allGifts); 
                 updateMyGiftsList();
                 giftsModal.classList.remove('hidden');
+            } else {
+                // alert("No gifts found for this Phone Number and Date of Birth combination. Please check your details.");
+                errorDiv.innerText = "Login failed! Check your Phone Number / Date of Birth and try again. Use the same details you provided when hanging your gift.";
+                errorDiv.classList.remove('hidden');
             }
         };
 
@@ -822,11 +1023,51 @@
         }
 
         function showReadModal(data) {
+            currentGiftId = data.id; // Store for sharing
             document.getElementById('read-name').innerText = data.name;
             document.getElementById('read-message').innerText = `"${data.message}"`;
             document.getElementById('read-id').innerText = data.id ? data.id.slice(-6).toUpperCase() : '...';
+            
+            // Handle Verified Stamp
+            const stamp = document.getElementById('verification-stamp');
+            const shareBtn = document.getElementById('share-btn');
+            const pendingNote = document.getElementById('pending-note'); // New element
+            
+            if (data.status === 'approved') {
+                stamp.style.display = 'block';
+                shareBtn.style.display = 'flex';
+                if(pendingNote) pendingNote.style.display = 'none';
+            } else {
+                stamp.style.display = 'none';
+                shareBtn.style.display = 'none';
+                if(pendingNote) pendingNote.style.display = 'block';
+            }
+
             readModal.classList.remove('hidden'); readModal.classList.remove('opacity-0'); controls.autoRotate = false;
         }
+
+        // UPDATED: Share with Web Share API support
+        window.shareGift = () => {
+            if(!currentGiftId) return;
+            const url = window.location.origin + window.location.pathname + '?gift=' + currentGiftId;
+            const shareData = {
+                title: 'A Special Christmas Surprise for You! 🎄',
+                text: 'I\'ve hung a special gift for you on the Gift of Joy Tree! Tap to unwrap my message and feel the Christmas magic. ✨🎁',
+                url: url
+            };
+
+            if (navigator.share) {
+                navigator.share(shareData).catch(console.error);
+            } else if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('Link copied to clipboard!');
+                }).catch(() => {
+                    prompt("Copy this link to share:", url);
+                });
+            } else {
+                prompt("Copy this link to share:", url);
+            }
+        };
 
         function animate() {
             requestAnimationFrame(animate);
